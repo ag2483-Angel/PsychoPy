@@ -789,6 +789,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         
         space_held = False
         space_start_time = None
+        lookaway_start_time = None
         
         # Set up keyboard state handler
         from pyglet.window import key
@@ -891,21 +892,29 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             if event.getKeys(['escape']):
                 core.quit()
                 
-            # Check if space is currently pressed
+            # Check if space is currently pressed (hardware state — not keydown event)
             space_is_down = keyboard_state[key.SPACE]
-            
-            # Detect press
-            if space_is_down and not space_held:
-                space_held = True
-                space_start_time = t
-                print(f"Space pressed at {t}")
-            
-            # Detect release
+
+            if space_is_down:
+                if not space_held:
+                    # First press (or seamless hold carried over from attention getter)
+                    space_held = True
+                    space_start_time = t
+                    print(f"Space pressed at t={t:.3f}s")
+                # Space is held — cancel any pending lookaway timer
+                lookaway_start_time = None
+
             if not space_is_down and space_held:
-                looking_time = t - space_start_time
-                thisExp.addData('looking_time', looking_time)
-                print(f"Looking time: {looking_time}s")
-                continueRoutine = False
+                if lookaway_start_time is None:
+                    # Space just released — start the 1-second lookaway timer
+                    lookaway_start_time = t
+                    print(f"Space released at t={t:.3f}s — lookaway timer started")
+                elif (t - lookaway_start_time) >= 1.0:
+                    # Baby has looked away for >= 1 second — end the trial
+                    looking_time = lookaway_start_time - space_start_time
+                    thisExp.addData('looking_time', looking_time)
+                    print(f"Lookaway >= 1s — ending trial. Looking time: {looking_time:.3f}s")
+                    continueRoutine = False
             
             # Play sounds and animate face based on current phase
             if current_step < len(files_to_play):
