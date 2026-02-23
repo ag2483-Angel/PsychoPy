@@ -409,8 +409,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         flipHoriz=False, flipVert=False,
         texRes=128.0, interpolate=True, depth=-2.0)
     # Run 'Begin Experiment' code from trial_code
-    #Normalize the sound stream
-    sound_stream = sound.Sound('sounds/Bah.wav')
+    current_sound = None  # Will be created fresh for each sound step
     
     
     
@@ -790,11 +789,21 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         space_held = False
         space_start_time = None
         lookaway_start_time = None
-        
-        # Set up keyboard state handler
-        from pyglet.window import key
-        keyboard_state = key.KeyStateHandler()
-        win.winHandle.push_handlers(keyboard_state)
+
+        # Track space key state via explicit pyglet press/release events
+        space_down_state = [False]
+
+        def _on_key_press(symbol, modifiers):
+            from pyglet.window import key as pyglet_key
+            if symbol == pyglet_key.SPACE:
+                space_down_state[0] = True
+
+        def _on_key_release(symbol, modifiers):
+            from pyglet.window import key as pyglet_key
+            if symbol == pyglet_key.SPACE:
+                space_down_state[0] = False
+
+        win.winHandle.push_handlers(on_key_press=_on_key_press, on_key_release=_on_key_release)
         # store start times for trial
         trial.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
         trial.tStart = globalClock.getTime(format='float')
@@ -892,8 +901,8 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
             if event.getKeys(['escape']):
                 core.quit()
                 
-            # Check if space is currently pressed (hardware state — not keydown event)
-            space_is_down = keyboard_state[key.SPACE]
+            # Check if space is currently pressed
+            space_is_down = space_down_state[0]
 
             if space_is_down:
                 if not space_held:
@@ -921,9 +930,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 
                 # Phase 0: Waiting to start next sound/animation
                 if animation_phase == 0:
-                    # Start the sound and begin rising animation
-                    sound_stream.setSound(files_to_play[current_step])
-                    sound_stream.play()
+                    # Create a fresh Sound object and play it
+                    current_sound = sound.Sound(files_to_play[current_step])
+                    current_sound.play()
                     print(f"Playing sound {current_step + 1}: {files_to_play[current_step]} (label: {labels_to_play[current_step]})")
                     
                     # Start rising animation
@@ -980,11 +989,12 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                         face_stim.pos = [0, start_y]  # Keep face at lowest position
                     
                         # Stay in phase 3 until sound finishes
-                        if not sound_stream.isPlaying:
+                        sound_still_playing = current_sound is not None and current_sound.isPlaying
+                        if not sound_still_playing:
                             # Sound finished, move to next sound and reset animation
                             animation_phase = 0
                             current_step += 1
-                            print(f"Sound playing: {sound_stream.isPlaying}, Animation phase: {animation_phase}, Current step: {current_step}")
+                            print(f"Sound finished. Animation phase: {animation_phase}, Current step: {current_step}")
                             
             else:
                 # No more sounds to play — end the trial
@@ -1031,9 +1041,11 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         trial.tStopRefresh = tThisFlipGlobal
         thisExp.addData('trial.stopped', trial.tStop)
         # Run 'End Routine' code from trial_code
-        # Stop the reusable sound stream if it's still playing
-        if sound_stream.isPlaying:
-            sound_stream.stop()
+        # Remove key event handlers
+        win.winHandle.remove_handlers(on_key_press=_on_key_press, on_key_release=_on_key_release)
+        # Stop current sound if still playing
+        if current_sound is not None and current_sound.isPlaying:
+            current_sound.stop()
         
         # the Routine "trial" was not non-slip safe, so reset the non-slip timer
         routineTimer.reset()
