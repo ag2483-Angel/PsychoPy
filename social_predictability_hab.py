@@ -575,6 +575,22 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         # if running in a Session with a Liaison client, send data up to now
         thisSession.sendExperimentData()
     
+    # Set up space key tracking once before the trials loop so the held state
+    # carries seamlessly from the attention getter into each trial.
+    space_down_state = [False]
+
+    def _on_key_press(symbol, modifiers):
+        from pyglet.window import key as pyglet_key
+        if symbol == pyglet_key.SPACE:
+            space_down_state[0] = True
+
+    def _on_key_release(symbol, modifiers):
+        from pyglet.window import key as pyglet_key
+        if symbol == pyglet_key.SPACE:
+            space_down_state[0] = False
+
+    win.winHandle.push_handlers(on_key_press=_on_key_press, on_key_release=_on_key_release)
+
     for thisTrial in trials:
         currentLoop = trials
         thisExp.timestampOnFlip(win, 'thisRow.t', format=globalClock.format)
@@ -679,12 +695,12 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                     attention_getter_laugh.stop()
             # Run 'Each Frame' code from attention_getter_code
             keys = event.getKeys()
-            
-            # Spacebar advances to trial
-            if 'space' in keys:
-                print("Space pressed in attention getter - continuing to trial")
+
+            # Holding space advances to trial — the hold carries into the trial automatically
+            if space_down_state[0]:
+                print("Space held in attention getter - continuing to trial")
                 continueRoutine = False
-            
+
             # Escape quits experiment
             if 'escape' in keys:
                 print("Escape pressed - quitting experiment")
@@ -786,24 +802,12 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         occluder_stim.size = (0.23, 0.23) # Size of occluder
         occluder_stim.pos = [0, 0]     # Position of occluder
         
-        space_held = False
-        space_start_time = None
+        # If space is already held from the attention getter, treat looking as started
+        space_held = space_down_state[0]
+        space_start_time = 0 if space_held else None
         lookaway_start_time = None
-
-        # Track space key state via explicit pyglet press/release events
-        space_down_state = [False]
-
-        def _on_key_press(symbol, modifiers):
-            from pyglet.window import key as pyglet_key
-            if symbol == pyglet_key.SPACE:
-                space_down_state[0] = True
-
-        def _on_key_release(symbol, modifiers):
-            from pyglet.window import key as pyglet_key
-            if symbol == pyglet_key.SPACE:
-                space_down_state[0] = False
-
-        win.winHandle.push_handlers(on_key_press=_on_key_press, on_key_release=_on_key_release)
+        if space_held:
+            print("Space already held from attention getter - looking started at t=0")
         # store start times for trial
         trial.tStartRefresh = win.getFutureFlipTime(clock=globalClock)
         trial.tStart = globalClock.getTime(format='float')
