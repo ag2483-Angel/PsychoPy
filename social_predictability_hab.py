@@ -21,7 +21,7 @@ from psychopy import prefs
 from psychopy import plugins
 plugins.activatePlugins()
 prefs.hardware['audioLib'] = 'ptb'
-prefs.hardware['audioLatencyMode'] = '1'
+prefs.hardware['audioLatencyMode'] = '3'
 from psychopy import sound, gui, visual, core, data, event, logging, clock, colors, layout, hardware
 from psychopy.tools import environmenttools
 from psychopy.constants import (NOT_STARTED, STARTED, PLAYING, PAUSED,
@@ -762,12 +762,6 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         face_stim.setImage(face)
         occluder_stim.setImage(occluder)
         # Run 'Begin Routine' code from trial_code
-        # --- DIAGNOSTIC: play a simple beep to test audio ---
-        test_beep = sound.Sound(400, secs=0.5)  # 400 Hz tone for 0.5s
-        test_beep.play()
-        print("TEST BEEP PLAYED")
-        # --- END DIAGNOSTIC ---
-
         # Load trial variables from Excel
         current_sequence = str(sequence)
         
@@ -790,7 +784,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         # Initialize control variables
         current_step = 0
         waiting_for_sound = True
-        
+        current_sound = None
+        sound_play_time = None  # Wall-clock time when current sound started
+
         # Animation settings
         animation_phase = 0  # 0=waiting, 1=rising, 2=visible, 3=lowering
         animation_start_time = 0
@@ -943,8 +939,9 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                     # Create a fresh Sound object and play it
                     current_sound = sound.Sound(files_to_play[current_step])
                     current_sound.play(when=win.getFutureFlipTime(clock='ptb'))
+                    sound_play_time = t  # record when sound started for time-based fallback
                     print(f"Playing sound {current_step + 1}: {files_to_play[current_step]} (label: {labels_to_play[current_step]})")
-                    
+
                     # Start rising animation
                     animation_phase = 1
                     animation_start_time = t
@@ -998,8 +995,11 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                         # Animation complete, wait for sound to finish
                         face_stim.pos = [0, start_y]  # Keep face at lowest position
                     
-                        # Stay in phase 3 until sound finishes
-                        sound_still_playing = current_sound is not None and current_sound.isPlaying
+                        # Stay in phase 3 until sound finishes.
+                        # PTB's isPlaying can return False prematurely, so also
+                        # require at least 0.5s elapsed since play() was called.
+                        min_elapsed = (t - sound_play_time) >= 0.5 if sound_play_time is not None else True
+                        sound_still_playing = current_sound is not None and (current_sound.isPlaying or not min_elapsed)
                         if not sound_still_playing:
                             # Sound finished, move to next sound and reset animation
                             animation_phase = 0
