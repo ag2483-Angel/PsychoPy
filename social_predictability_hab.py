@@ -936,7 +936,7 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
                 if animation_phase == 0:
                     # Create a fresh Sound object and play it
                     current_sound = sound.Sound(files_to_play[current_step])
-                    current_sound.play()
+                    current_sound.play(when=win.getFutureFlipTime(clock='ptb'))
                     print(f"Playing sound {current_step + 1}: {files_to_play[current_step]} (label: {labels_to_play[current_step]})")
                     
                     # Start rising animation
