@@ -762,6 +762,12 @@ def run(expInfo, thisExp, win, globalClock=None, thisSession=None):
         face_stim.setImage(face)
         occluder_stim.setImage(occluder)
         # Run 'Begin Routine' code from trial_code
+        # --- DIAGNOSTIC: play a simple beep to test audio ---
+        test_beep = sound.Sound(400, secs=0.5)  # 400 Hz tone for 0.5s
+        test_beep.play()
+        print("TEST BEEP PLAYED")
+        # --- END DIAGNOSTIC ---
+
         # Load trial variables from Excel
         current_sequence = str(sequence)
         
